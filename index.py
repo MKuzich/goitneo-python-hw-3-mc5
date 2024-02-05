@@ -8,9 +8,6 @@ class NotValidPhoneNumber(ValueError):
 class NotValidDate(ValueError):
     pass
 
-class PhoneIsNumber(ValueError):
-    pass
-
 class NameIsString(ValueError):
     pass
 
@@ -22,20 +19,6 @@ class NoBirthdays(Exception):
 
 class NoBirthday(KeyError):
     pass
-
-def error_handler(func):
-    def inner(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except NotValidPhoneNumber:
-            return "Phone number should contain only 10 digits."
-        except IndexError:
-            return "Phone not found."
-        except NotValidDate:
-            return "Date should be in format DD.MM.YYYY"
-        except:
-            return "Something went wrong."
-    return inner
 
 class Field:
     def __init__(self, value):
@@ -73,32 +56,23 @@ class Record:
                 return i
         raise IndexError
 
-    @error_handler
     def add_phone(self, phone):
         self.phones.append(Phone(phone))
-        return 'Phone added.'
 
-    @error_handler
     def remove_phone(self, phone):
         idx = self.find_idx(phone)
         self.phones.pop(idx)
-        return 'Phone removed.'
 
-    @error_handler
     def edit_phone(self, phone, new_phone):
         idx = self.find_idx(phone)
         self.phones[idx].value = new_phone
-        return 'Phone edited.'
 
-    @error_handler
     def find_phone(self, phone):
         idx = self.find_idx(phone)
         return self.phones[idx]
     
-    @error_handler
     def add_birthday(self, birthday):
         self.birthday = Birthday(birthday)
-        return 'Birthday added.'
         
     def __str__(self):
         return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}{', birthday: ' + self.birthday.value.strftime('%d %B, %Y') if hasattr(self, 'birthday') else ''}"
@@ -106,7 +80,6 @@ class Record:
 class AddressBook(UserDict):
     def add_record(self, record):
         self.data[record.name.value] = record
-        return 'Contact added.'
     
     def find(self, name):
         contact = self.data.get(name)
@@ -118,7 +91,6 @@ class AddressBook(UserDict):
         contact = self.data.pop(name, None)
         if not contact:
             raise KeyError
-        return contact
     
     def get_birthdays_per_week(self):
         today = datetime.now().date()
@@ -150,10 +122,11 @@ def input_error(func):
     def inner(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except NotValidDate:
-            return "Date should be in format DD.MM.YYYY"
-        except PhoneIsNumber:
+        
+        except NotValidPhoneNumber:
             return "Phone number should contain only 10 digits."
+        except NotValidDate:
+            return "Date should be in format DD.MM.YYYY."
         except NameIsString:
             return "Name should contain only letters."
         except ValueError:
@@ -161,7 +134,7 @@ def input_error(func):
         except NoBirthday:
             return "No birthday for this contact."
         except IndexError:
-            return "Contact not found."
+            return "Phone not found."
         except KeyError:
             return "Contact not found."
         except NoContacts: 
@@ -181,14 +154,14 @@ def parse_input(user_input):
 def add_contact(args, contacts):
     name, phone = args
     if not phone.isdigit() or len(phone) != 10:
-        raise PhoneIsNumber
+        raise NotValidPhoneNumber
     if not name.isalpha():
         raise NameIsString
     
     record = Record(name)
     record.add_phone(phone)
     contacts.add_record(record)
-    return "Contact added."
+    return f"{name} with phone {phone} added."
 
 @input_error
 def change_contact(args, contacts):
@@ -196,14 +169,21 @@ def change_contact(args, contacts):
     if name not in contacts:
         raise KeyError
     if not phone.isdigit() or len(phone) != 10:
-        raise PhoneIsNumber
+        raise NotValidPhoneNumber
     if not name.isalpha():
         raise NameIsString
     
     record = contacts.find(name)
     record.edit_phone(record.phones[0].value, phone)
-    return "Contact phone changed."
+    return f"{name} phone changed to {phone}."
 
+@input_error
+def remove_contact(args, contacts):
+    name = args[0]
+    if not name.isalpha():
+        raise NameIsString
+    contacts.delete(name)
+    return f"{name} removed."
 
 @input_error
 def show_contact(args, contacts):
@@ -243,7 +223,7 @@ def add_birthday(args, contacts):
         raise NotValidDate
 
     record.add_birthday(birthday)
-    return "Birthday added."
+    return f"{name}'s birthday added."
 
 @input_error
 def show_birthday(args, contacts):
@@ -278,16 +258,18 @@ def main():
         user_input = input("Enter a command: ")
         command, *args = parse_input(user_input)
 
-        if command in ["close", "exit"]:
+        if command in ["close", "exit", "bye", "quit"]:
             print("Good bye!")
             save_data(contacts)
             break
-        elif command == "hello":
+        elif command in  ["hello", "hi", "hey", "yo", "sup"]:
             print("How can I help you?")
-        elif command in ["add"]:
+        elif command in ["add", "create", "new"]:
             print(add_contact(args, contacts))
-        elif command in ["change"]:
+        elif command in ["change", "edit", "update"]:
             print(change_contact(args, contacts))
+        elif command in ["delete", "remove", "drop"]:
+            print(remove_contact(args, contacts))
         elif command == "phone":
             print(show_contact(args, contacts))
         elif command == "all":
